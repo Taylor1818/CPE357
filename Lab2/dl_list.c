@@ -1,5 +1,6 @@
 #include<stdio.h>
 #include<stdlib.h>
+#include<string.h>
 
 struct node{
     struct node *next, *prev;
@@ -11,6 +12,7 @@ struct node *end = NULL;
 int length = 0;
 
 void push_string(){
+    
     char str;
     struct node* new_node = (struct node*)malloc(sizeof(node));
 
@@ -19,17 +21,18 @@ void push_string(){
 
     printf("\nInsert a String: ");
     scanf("%c", &str);
-    scanf("%s", new_node -> text);
+    fgets(new_node -> text, 1000, stdin);
+    
+    new_node -> text[strlen(new_node -> text)-1] = '\0';
 
     if(!end){
         head = new_node;
         end = new_node;
     }
     else{
+        new_node -> prev = end;
         end -> next = new_node;
-        struct node *temp = end;
         end = new_node;
-        end -> prev = temp;
     }
     length++;
 }
@@ -65,6 +68,7 @@ void delete_item(){
 
     if(length == 0 ){
         printf("\nList is empty.\n");
+        //free(head);
         return;
     }
 
@@ -90,9 +94,6 @@ void delete_item(){
         if(current -> next ){
             current = current -> next;
         }
-        else{
-            return;
-        }
     }
 
     if(current -> prev){
@@ -101,7 +102,7 @@ void delete_item(){
             current -> next -> prev = current -> prev;
         }
         else{
-            current -> prev -> next == NULL;
+            current -> prev -> next = NULL;
             end = current -> prev;
         }
     }
@@ -143,10 +144,12 @@ int main(){
         }
     }
 
-    while (head)
+    while(head)
     {
-        free(head);
+        struct node *temp;
+        temp = head;
         head = head -> next;
+        free(temp);
     }
     printf("\n------- Ending Program-------\n");
 
