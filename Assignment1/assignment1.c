@@ -7,7 +7,7 @@ typedef unsigned int DWORD;
 typedef unsigned int LONG;
 typedef unsigned char BYTE;
 
-#define help "\n\033[0;32m---------------------------------------\n\tImage Blender Usage:\n---------------------------------------\033[0m\n\nPlease specify the following parameters:\n\t1. Input File 1 Name\n\t2. Input File 2 Name\n\t3. Blend ratio (0.0-1.0)\n\t4. Output File Name\n\n\033[1;31mParameters must be supplied in this order\033[0m\n\n"
+#define manual "\n\tManual:\n\nSpecify the following parameters:\n\t1. Input File 1\n\t2. Input File 2\n\t3. Blend ratio (0.0-1.0)\n\t4. Output File Name\n\n"
 
 
 typedef struct tagBITMAPFILEHEADER
@@ -92,19 +92,26 @@ void setRed(int x, int y, BMP bmp, unsigned char val){
 BMP readBMP(const char* name){
     BMP bmp;
     FILE *fp = fopen(name, "rb");
+
     fread(&bmp.FileHead.bfType, 2, 1, fp);
     fread(&bmp.FileHead.bfSize, 4, 1, fp);
     fread(&bmp.FileHead.bfReserved1, 2, 1, fp);
     fread(&bmp.FileHead.bfReserved2, 2, 1, fp);
     fread(&bmp.FileHead.bfOffBits, 4, 1, fp);
     fread(&bmp.InfoHead, sizeof(bmp.InfoHead), 1, fp);
+
     bmp.data = (BYTE*) malloc(bmp.InfoHead.biSizeImage);
+
     fread(bmp.data, bmp.InfoHead.biSizeImage,1,fp);
     fclose(fp);   
+
     bmp.WIDTH=bmp.InfoHead.biWidth;
     bmp.HEIGHT=bmp.InfoHead.biHeight;
     bmp.pixelWidth = 3*bmp.WIDTH;
-    if(4-bmp.pixelWidth%4 != 4) bmp.pixelWidth = bmp.pixelWidth+ 4-bmp.pixelWidth%4; 
+
+    if(4-bmp.pixelWidth%4 != 4){
+            bmp.pixelWidth = bmp.pixelWidth+ 4-bmp.pixelWidth%4;
+    }
     return bmp;
 }
 
@@ -143,30 +150,30 @@ BYTE blur(BYTE c1, BYTE c2, float ratio){
 
 void interpolate(int x, int y, BMP bmp1, BMP bmp2, BYTE* color){
     
-    double xdub = x * (bmp2.WIDTH+0.0f) / bmp1.WIDTH;
-    double ydub = y * (bmp2.HEIGHT+0.0f) / bmp1.HEIGHT;
+    double xdub = x * bmp2.WIDTH / bmp1.WIDTH;
+    double ydub = y * bmp2.HEIGHT / bmp1.HEIGHT;
 
-    int smallX = (int)xdub;
-    float xDif = xdub-smallX;
+    int colorX = (int)xdub;
+    float xDif = xdub-colorX;
 
-    int smallY = (int)ydub;
-    float yDif = ydub-smallY;
+    int colorY = (int)ydub;
+    float yDif = ydub-colorY;
 
-    BYTE trr = getRed(smallX, smallY+1, bmp2);
-    BYTE trg = getGreen(smallX, smallY+1, bmp2);
-    BYTE trb = getBlue(smallX, smallY+1, bmp2);
+    BYTE trr = getRed(colorX, colorY+1, bmp2); // Top Right 
+    BYTE trg = getGreen(colorX, colorY+1, bmp2);
+    BYTE trb = getBlue(colorX, colorY+1, bmp2);
 
-    BYTE brr = getRed(smallX, smallY, bmp2);
-    BYTE brg = getGreen(smallX, smallY, bmp2);
-    BYTE brb = getBlue(smallX, smallY, bmp2);
+    BYTE brr = getRed(colorX, colorY, bmp2); // Bottom Right
+    BYTE brg = getGreen(colorX, colorY, bmp2);
+    BYTE brb = getBlue(colorX, colorY, bmp2);
 
-    BYTE tlr = getRed(smallX+1, smallY+1, bmp2);
-    BYTE tlg = getGreen(smallX+1, smallY+1, bmp2);
-    BYTE tlb = getBlue(smallX+1, smallY+1, bmp2);
+    BYTE tlr = getRed(colorX+1, colorY+1, bmp2); // Top Left
+    BYTE tlg = getGreen(colorX+1, colorY+1, bmp2);
+    BYTE tlb = getBlue(colorX+1, colorY+1, bmp2);
 
-    BYTE blr = getRed(smallX+1, smallY, bmp2);
-    BYTE blg = getGreen(smallX+1, smallY, bmp2);
-    BYTE blb = getBlue(smallX+1, smallY, bmp2);
+    BYTE blr = getRed(colorX+1, colorY, bmp2); // Bottom Left
+    BYTE blg = getGreen(colorX+1, colorY, bmp2);
+    BYTE blb = getBlue(colorX+1, colorY, bmp2);
 
     BYTE leftR = blur(tlr, blr, yDif);
     BYTE leftG = blur(tlg, blg, yDif);
@@ -182,28 +189,29 @@ void interpolate(int x, int y, BMP bmp1, BMP bmp2, BYTE* color){
 }
 
 
-void main(int args, char *arg[]){
+void main(int argc, char *argv[]){
 
-    if (args != 5){
-        printf(help);
+    if (argc != 5){
+        printf(manual);
         return;
     }
 
-    if (((float)atof(arg[3]) < 0) || ((float)atof(arg[3]) > 1)){
-        printf("\033[1;31mError: Invalid Ratio\033[0m\nRatio must be in range 0-1\n");
+    if (((float)atof(argv[3]) < 0) || ((float)atof(argv[3]) > 1)){
+        printf("Error: Invalid Ratio\nRatio must be in range 0-1\n");
         return;
     }
 
     struct tagBMP bmp1, bmp2, bmpOut;
+
     for(int i = 1; i<=2; i++){
-        if(!checkFile(arg[i])){
-            printf("\033[1;31mError: Input file %d does not exist\033[0m\n", i);
+        if(!checkFile(argv[i])){
+            printf("Error: Input file %d does not exis\n", i);
             return;
         }
     }
 
-    bmp1 = readBMP(arg[1]);
-    bmp2= readBMP(arg[2]);
+    bmp1 = readBMP(argv[1]);
+    bmp2 = readBMP(argv[2]);
     
 
     if(bmp1.InfoHead.biWidth < bmp2.InfoHead.biWidth){
@@ -214,27 +222,27 @@ void main(int args, char *arg[]){
 
     bmpOut = cloneBMP(bmp1, bmp2);
 
-    float ratio = (float)atof(arg[3]);
+    float ratio = (float)atof(argv[3]);
     
-    for(int y=0; y<bmpOut.HEIGHT; y++){
-        for(int x =0; x<bmpOut.WIDTH; x++){
+    for(int y = 0; y < bmpOut.HEIGHT; y++){
+        for(int x = 0; x < bmpOut.WIDTH; x++){
             
-            BYTE smaller[3];
-            interpolate(x,y, bmp1, bmp2, smaller);
+            BYTE color[3];
+            interpolate(x,y, bmp1, bmp2, color);
 
             BYTE b1 = getBlue(x, y, bmp1);
-            setBlue(x, y, bmpOut, blur(b1, smaller[0], ratio));
+            setBlue(x, y, bmpOut, blur(b1, color[0], ratio));
             
             BYTE g1 = getGreen(x, y, bmp1);
-            setGreen(x, y, bmpOut, blur(g1, smaller[1], ratio));
+            setGreen(x, y, bmpOut, blur(g1, color[1], ratio));
 
             BYTE r1 = getRed(x, y, bmp1);
-            setRed(x, y, bmpOut, blur(r1, smaller[2], ratio));
+            setRed(x, y, bmpOut, blur(r1, color[2], ratio));
         }
     }
 
-    writeBMP(arg[4],bmpOut);
-    printf("\033[0;32mFiles Blended Succesfully\n\033[0m");
+    writeBMP(argv[4],bmpOut);
+    printf("\nSuccess: Files Blended\n\n");
     free(bmp1.data);
     free(bmp2.data);
     free(bmpOut.data);
