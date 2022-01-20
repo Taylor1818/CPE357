@@ -108,14 +108,20 @@ BMP readBMP(const char* name){
     return bmp;
 }
 
-BMP cloneBMP(BMP bmp){
+BMP cloneBMP(BMP bmp1, BMP bmp2){
     BMP new;
-    new.FileHead = bmp.FileHead;
-    new.InfoHead = bmp.InfoHead;
+    BMP *bmp = &bmp1;
+
+    if( bmp2.InfoHead.biWidth > bmp1.InfoHead.biWidth ){
+       bmp = &bmp2; 
+    }
+
+    new.FileHead = bmp -> FileHead;
+    new.InfoHead = bmp -> InfoHead;
     new.data = (BYTE*) malloc(new.InfoHead.biSizeImage);
-    new.WIDTH = bmp.WIDTH;
-    new.HEIGHT = bmp.HEIGHT;
-    new.pixelWidth = bmp.pixelWidth;
+    new.WIDTH = bmp -> WIDTH;
+    new.HEIGHT = bmp -> HEIGHT;
+    new.pixelWidth = bmp -> pixelWidth;
     return new;
 }
 
@@ -136,6 +142,7 @@ BYTE blur(BYTE c1, BYTE c2, float ratio){
 }
 
 void interpolate(int x, int y, BMP bmp1, BMP bmp2, BYTE* color){
+    
     double xdub = x * (bmp2.WIDTH+0.0f) / bmp1.WIDTH;
     double ydub = y * (bmp2.HEIGHT+0.0f) / bmp1.HEIGHT;
 
@@ -145,21 +152,21 @@ void interpolate(int x, int y, BMP bmp1, BMP bmp2, BYTE* color){
     int smallY = (int)ydub;
     float yDif = ydub-smallY;
 
-    BYTE tlr = getRed(smallX, smallY+1, bmp2);
-    BYTE tlg = getGreen(smallX, smallY+1, bmp2);
-    BYTE tlb = getBlue(smallX, smallY+1, bmp2);
+    BYTE trr = getRed(smallX, smallY+1, bmp2);
+    BYTE trg = getGreen(smallX, smallY+1, bmp2);
+    BYTE trb = getBlue(smallX, smallY+1, bmp2);
 
-    BYTE blr = getRed(smallX, smallY, bmp2);
-    BYTE blg = getGreen(smallX, smallY, bmp2);
-    BYTE blb = getBlue(smallX, smallY, bmp2);
+    BYTE brr = getRed(smallX, smallY, bmp2);
+    BYTE brg = getGreen(smallX, smallY, bmp2);
+    BYTE brb = getBlue(smallX, smallY, bmp2);
 
-    BYTE trr = getRed(smallX+1, smallY+1, bmp2);
-    BYTE trg = getGreen(smallX+1, smallY+1, bmp2);
-    BYTE trb = getBlue(smallX+1, smallY+1, bmp2);
+    BYTE tlr = getRed(smallX+1, smallY+1, bmp2);
+    BYTE tlg = getGreen(smallX+1, smallY+1, bmp2);
+    BYTE tlb = getBlue(smallX+1, smallY+1, bmp2);
 
-    BYTE brr = getRed(smallX+1, smallY, bmp2);
-    BYTE brg = getGreen(smallX+1, smallY, bmp2);
-    BYTE brb = getBlue(smallX+1, smallY, bmp2);
+    BYTE blr = getRed(smallX+1, smallY, bmp2);
+    BYTE blg = getGreen(smallX+1, smallY, bmp2);
+    BYTE blb = getBlue(smallX+1, smallY, bmp2);
 
     BYTE leftR = blur(tlr, blr, yDif);
     BYTE leftG = blur(tlg, blg, yDif);
@@ -174,7 +181,7 @@ void interpolate(int x, int y, BMP bmp1, BMP bmp2, BYTE* color){
     color[2] = blur(leftR, rightR, xDif);
 }
 
-//if using photoshop -> export as 24bit RBG
+
 void main(int args, char *arg[]){
 
     if (args != 5){
@@ -197,11 +204,21 @@ void main(int args, char *arg[]){
 
     bmp1 = readBMP(arg[1]);
     bmp2= readBMP(arg[2]);
-    bmpOut = cloneBMP(bmp1);
+    
+
+    if(bmp1.InfoHead.biWidth < bmp2.InfoHead.biWidth){
+        BMP temp = bmp2;
+        bmp2 = bmp1;
+        bmp1 = temp;
+    }
+
+    bmpOut = cloneBMP(bmp1, bmp2);
 
     float ratio = (float)atof(arg[3]);
-    for(int y=0; y<bmp1.HEIGHT; y++){
-        for(int x =0; x<bmp1.WIDTH; x++){
+    
+    for(int y=0; y<bmpOut.HEIGHT; y++){
+        for(int x =0; x<bmpOut.WIDTH; x++){
+            
             BYTE smaller[3];
             interpolate(x,y, bmp1, bmp2, smaller);
 
