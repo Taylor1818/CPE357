@@ -232,8 +232,8 @@ void main(int args, char *arg[]){
     msync(bmpOut.data, sizeof(bmpOut.InfoHead.biSizeImage), 4);
     writeBMP(arg[4],bmpOut);
 
-    clock_t total = clock() - time;
-    printf("File brightened in %ld us\n", total);
+    double total = ((double)(clock() - time))/CLOCKS_PER_SEC;
+    printf("File brightened in %f seconds\n", total);
     
     munmap(bmp1.data, sizeof(bmp1.data));
     munmap(bmpOut.data, sizeof(bmpOut.data));
