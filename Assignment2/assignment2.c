@@ -18,32 +18,33 @@ struct chunkhead *last;
 
 struct chunkhead* findBestFit(int size){
     struct chunkhead* addr = head;
-    int min = -1;
     struct chunkhead* minAddr = 0;
     while(1){
         if(!addr->info){
-            if(addr->size == size) return addr;
-            if(min == -1){
-                min = addr->size;
-                minAddr = addr;
-            } else {
-                if(addr->size < min){
-                    min = addr->size;
+            if(addr->size == size){
+                return addr;
+            } 
+            else if(addr->size > size){//valid space
+                if(minAddr == 0){
+                    minAddr = addr;
+                }
+                else if(minAddr->size > addr->size){
                     minAddr = addr;
                 }
             }
+            
         }
         if(!addr->next){
             last = addr;
             break;
         }
         addr = addr->next;
-        
+
     }
-    if(min == -1){
-        return 0;
+
+    if(minAddr == 0){
+        return NULL;
     }
-    return minAddr;
 }
 
 char* mymalloc(int size){
@@ -196,4 +197,6 @@ void testTime(){
 
 void main(){
     testTime();
+    test();
+    
 }
