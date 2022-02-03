@@ -11,7 +11,10 @@ void onkill(){
     return;
 }
 
-void childTask(){
+void childTask(int parentid){
+
+    printf("Parent ID: %d\n", parentid);
+    printf("Child ID: %d\n", getpid());
 
     printf("Files in current directory: \n");
 
@@ -32,16 +35,10 @@ void childTask(){
     printf("\n");
 }
 
-void main(){
-
-    int forkC = fork();
-    int parent = getpid();
-
-    clock_t* last = (clock_t*)mmap(0, sizeof(clock_t), 0x1 | 0x2, 0x20 | 0x01, -1 , 0);
-    last[0] = clock() - 10 * (CLOCKS_PER_SEC);
-
-    while(1){
-
+void main()
+{
+    while(1)
+    {
         signal(SIGINT, onkill);
         signal(SIGTERM, onkill);
         signal(SIGQUIT, onkill);
@@ -49,33 +46,22 @@ void main(){
         signal(SIGTSTP, onkill);
         signal(SIGSTOP, onkill);
 
-        if(!forkC){
+        if( fork() == 0 )
+        {
             while (1)
             {
-                if(clock() > last[0] + 10 * (CLOCKS_PER_SEC)){
-                     time_t T = time(NULL);
-                     struct tm *now = localtime(&T);
+                time_t T = time(NULL);
+                struct tm *now = localtime(&T);
 
-                     printf ("Time: %02d: %02d: %02d\n", now -> tm_hour, now -> tm_min, now -> tm_sec);
+                printf ("Time: %02d: %02d: %02d\n", now -> tm_hour, now -> tm_min, now -> tm_sec);
 
-                     last[0] = clock();
-                     childTask(); 
-                }
-
+                childTask( getppid() );
+                sleep(10); 
             }
-            
         }
-        else{
-
-            printf("\nNice Try!\n\n");
-
-            printf("Parent: %d\n", getpid());
-            printf("Child: %d\n", forkC);
-            
+        else
+        {     
             wait(0);
-
-            forkC = fork();
-
         }
         
 
