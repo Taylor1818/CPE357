@@ -7,12 +7,12 @@
 #include <dirent.h>
 #include <sys/mman.h>
 
-void onkill(){
-    return;
+void onkill()
+{
 }
 
-void childTask(int parentid){
-
+void childTask(int parentid)
+{
     printf("Parent ID: %d\n", parentid);
     printf("Child ID: %d\n", getpid());
 
@@ -23,10 +23,12 @@ void childTask(int parentid){
     struct dirent *dir;
     d = opendir(".");
 
-    if(d){
+    if(d)
+    {
         while ((dir = readdir(d)) != NULL)
         {
-            if(dir -> d_name[0] != '.'){
+            if(dir -> d_name[0] != '.')
+            {
                 printf("[%s] \n", dir -> d_name);
             }
         }
@@ -35,36 +37,42 @@ void childTask(int parentid){
     printf("\n");
 }
 
+void nokill()
+{
+    signal(SIGINT, onkill);
+    signal(SIGTERM, onkill);
+    signal(SIGQUIT, onkill);
+    signal(SIGHUP, onkill);
+    signal(SIGTSTP, onkill);
+    signal(SIGSTOP, onkill);
+}
+
 void main()
 {
+    int pid;
+
     while(1)
     {
-        signal(SIGINT, onkill);
-        signal(SIGTERM, onkill);
-        signal(SIGQUIT, onkill);
-        signal(SIGHUP, onkill);
-        signal(SIGTSTP, onkill);
-        signal(SIGSTOP, onkill);
+        pid = fork();
 
-        if( fork() == 0 )
+        while ( pid == 0 )
         {
-            while (1)
-            {
-                time_t T = time(NULL);
-                struct tm *now = localtime(&T);
+            nokill();
 
-                printf ("Time: %02d: %02d: %02d\n", now -> tm_hour, now -> tm_min, now -> tm_sec);
+            time_t T = time(NULL);
+            struct tm *now = localtime(&T);
 
-                childTask( getppid() );
-                sleep(10); 
-            }
+            printf ("\nTime: %02d: %02d: %02d\n", now -> tm_hour, now -> tm_min, now -> tm_sec);
+
+            childTask( getppid() );
+            sleep(10); 
         }
-        else
+
+        if(pid > 0)
         {     
+            nokill();
             wait(0);
         }
-        
-
     }
-
+    return;
 }
