@@ -9,6 +9,7 @@
 
 void onkill()
 {
+    printf("CANT KILL ME!");
 }
 
 void childTask(int parentid)
