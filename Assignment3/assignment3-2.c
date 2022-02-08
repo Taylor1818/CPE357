@@ -27,20 +27,6 @@ void list(char *location)
     printf("\n");
 }
 
-void onkill()
-{
-}
-
-void nokill()
-{
-    signal(SIGINT, onkill);
-    signal(SIGTERM, onkill);
-    signal(SIGQUIT, onkill);
-    signal(SIGHUP, onkill);
-    signal(SIGTSTP, onkill);
-    signal(SIGSTOP, onkill);
-}
-
 void getInfo(char *text)
 {
     struct stat stats;
@@ -78,7 +64,9 @@ void childProcess()
         }
 
         printf("\033[0;34mstat prog . %s\033[0m$", currentDir);
+
         scanf("%[^\n]", text);
+
         scanf("%c", &flush);
 
         kill(getppid(), SIGRTMIN);
@@ -94,7 +82,9 @@ void childProcess()
         else if (text[0] == '/')
         {
             char temp[1001] = ".";
+
             struct stat stats;
+
             strcat(temp, text);
 
             if (stat(temp, &stats) || S_ISREG(stats.st_mode))
@@ -117,31 +107,38 @@ void childProcess()
     }
 }
 
+void onkill()
+{
+}
+
+void nokill()
+{
+    signal(SIGINT, onkill);
+    signal(SIGTERM, onkill);
+    signal(SIGQUIT, onkill);
+    signal(SIGHUP, onkill);
+    signal(SIGTSTP, onkill);
+    signal(SIGSTOP, onkill);
+}
+
 void main()
 {
     int pid;
-
-    pid = fork();
-
-    if (!pid)
+    while (1)
     {
-        childProcess();
-    }
-    else
-    {
-        nokill();
+        pid = fork();
 
-        printf("Child ID: %d   Parent ID: %d\n", pid, getpid());
-
-        while (sleep(10))
+        while (pid == 0)
         {
-            asm("NOP");
+            nokill();
+            childProcess();
         }
-
-        printf("\nExiting Due To Inactivity\n");
-
-        kill(pid, SIGKILL);
-
-        wait(0);
+        if (pid > 0)
+        {
+            nokill();
+            printf("\nChild ID: %d   Parent ID: %d\n", pid, getpid());
+            wait(0);
+            sleep(5);
+        }
     }
 }
