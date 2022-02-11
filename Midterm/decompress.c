@@ -1,5 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/wait.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <sys/mman.h>
 
 typedef unsigned short SHORT;
 typedef unsigned long LONG;
@@ -100,14 +104,10 @@ BIN readBIN(const char *name)
         j++;
     }
 
-    fread(&bin.InfoHead, sizeof(bin.InfoHead), 1, fp);
-
-    bin.data = (BYTE *)malloc(3 * bin.compressedHead.width * bin.compressedHead.height);
-
-    fread(bin.data, 3 * bin.compressedHead.width * bin.compressedHead.height, 1, fp);
+    bin.data = (BYTE*)mmap(0, 3 * bin.compressedHead.width * bin.compressedHead.height, 0x1 | 0x2, 0x20 | 0x01, -1, 0);
 
     fclose(fp);
-    
+
     return bin;
 }
 
@@ -163,31 +163,122 @@ void writeBIN(const char *name, BIN bin)
 
 void decompress(BIN bin)
 {
-    int x, n = 0;
+    int x = 0;
     col color;
+    int n = (int)bin.InfoHead.biSizeImage / 4;
+    int n1 = n * 2;
+    int n2 = n * 3;
+    int n3 = n * 4;
 
-    while (x < bin.compressedHead.rowbyte_quarter[3] / 3)
+    int pid;
+    pid = fork();
+    if (pid == 0)
     {
-        color = bin.compressedHead.colors[bin.pairs[x].color_index];
-        
-        for (int i = 0; i < bin.pairs[x].count; i++)
+        int pid1;
+        pid1 = fork();
+        if (pid1 == 0)
         {
-            bin.data[2 + n] = color.r;
-            bin.data[1 + n] = color.g;
-            bin.data[0 + n] = color.b;
-            n += 3;
+            int pid2;
+            pid2 = fork();
+            if (pid2 == 0)
+            {
+                x = 0;
+                n = 0;
+
+                while (x < bin.compressedHead.rowbyte_quarter[0] / 3)
+                {
+                    color = bin.compressedHead.colors[bin.pairs[x].color_index];
+
+                    for (int i = 0; i < bin.pairs[x].count; i++)
+                    {
+                        bin.data[2 + n] = color.r;
+                        bin.data[1 + n] = color.g;
+                        bin.data[0 + n] = color.b;
+                        n += 3;
+                    }
+                    x++;
+                }
+
+                exit(0);
+            }
+            else
+            {
+                x = bin.compressedHead.rowbyte_quarter[0] / 3;
+                n = n;
+
+                while (x < bin.compressedHead.rowbyte_quarter[1] / 3)
+                {
+                    color = bin.compressedHead.colors[bin.pairs[x].color_index];
+
+                    for (int i = 0; i < bin.pairs[x].count; i++)
+                    {
+                        bin.data[2 + n] = color.r;
+                        bin.data[1 + n] = color.g;
+                        bin.data[0 + n] = color.b;
+                        n += 3;
+                    }
+                    x++;
+                }
+
+                wait(0);
+                exit(0);
+            }
         }
-        x++;
+        else
+        {
+            x = bin.compressedHead.rowbyte_quarter[1] / 3;
+            n = n1;
+
+            while (x < bin.compressedHead.rowbyte_quarter[2] / 3)
+            {
+                color = bin.compressedHead.colors[bin.pairs[x].color_index];
+
+                for (int i = 0; i < bin.pairs[x].count; i++)
+                {
+                    bin.data[2 + n] = color.r;
+                    bin.data[1 + n] = color.g;
+                    bin.data[0 + n] = color.b;
+                    n += 3;
+                }
+                x++;
+            }
+        }
+
+        wait(0);
+        exit(0);
+    }
+    else
+    {
+        x = bin.compressedHead.rowbyte_quarter[2] / 3;
+        n = n2;
+
+        while (x < bin.compressedHead.rowbyte_quarter[3] / 3)
+        {
+            color = bin.compressedHead.colors[bin.pairs[x].color_index];
+
+            for (int i = 0; i < bin.pairs[x].count; i++)
+            {
+                bin.data[2 + n] = color.r;
+                bin.data[1 + n] = color.g;
+                bin.data[0 + n] = color.b;
+                n += 3;
+            }
+            x++;
+        }
+        wait(0);
     }
 }
 
-void main(int argc, char *argv[])
+void main()
 {
-    checkFile(argv[1]);
-    struct tagBIN bin = readBIN(argv[1]);
+    checkFile("compressed.bin");
+
+    struct tagBIN bin = readBIN("compressed.bin");
     struct tagBIN bmpout = createBMP(bin);
-    decompress(bin);
-    writeBIN("Test.bmp", bmpout);
+
+    decompress(bmpout);
+
+    writeBIN("youdidit.bmp", bmpout);
     free(bin.pairs);
-    free(bin.data);
+    munmap(bin.data, 3 * bin.compressedHead.height * bin.compressedHead.width);
 }
