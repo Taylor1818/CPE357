@@ -24,7 +24,7 @@ void main()
 
     if (pid == 0)
     {
-        char *string1 = "Your time is limited, so don't waste it living someone else's life. Don't be trapped by dogma which is living with the results of other people's thinking.";
+        char *string1 = "Don't be trapped by dogma which is living with the results of other people's thinking.";
         char *string2 = "Many of life's failures are people who did not realize how close they were to success when they gave up.";
         int count = 0;
         while (1)
