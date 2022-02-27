@@ -50,34 +50,34 @@ void main()
     // }
 
     //REDIRECTION
-    int fd[2];
-    pipe(fd);
+    // int fd[2];
+    // pipe(fd);
 
-    int pid = fork();
-    if (pid == 0)
-    {
-        sleep(2);
-        write(fd[1], "Hi Mom & Dad\0", 100);
-        dup2(STDIN_FILENO, fd[0]);
-        kill(getppid(), SIGUSR1);
-        close(fd[1]);
-    }
-    else
-    {
-        char ptext[100];
-        // int savedOut = dup(STDIN_FILENO);
-        // dup2(cd[1], STDIN_FILENO);
+    // int pid = fork();
+    // if (pid == 0)
+    // {
+    //     sleep(2);
+    //     write(fd[1], "Hi Mom & Dad\0", 100);
+    //     dup2(STDIN_FILENO, fd[0]);
+    //     kill(getppid(), SIGUSR1);
+    //     close(fd[1]);
+    // }
+    // else
+    // {
+    //     char ptext[100];
+    //     // int savedOut = dup(STDIN_FILENO);
+    //     // dup2(cd[1], STDIN_FILENO);
 
-        // read(savedOut, ptext, 100);
-        while (1)
-        {
-            read(STDIN_FILENO, ptext, 100);
-            printf("%s", ptext);
-        }
+    //     // read(savedOut, ptext, 100);
+    //     while (1)
+    //     {
+    //         read(STDIN_FILENO, ptext, 100);
+    //         printf("%s", ptext);
+    //     }
 
 
         // char ctext[100];
         // read(cd[0], ctext, 100);
         // printf("%s", ctext);
-    }
+    //}
 }
