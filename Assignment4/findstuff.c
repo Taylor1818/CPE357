@@ -100,7 +100,6 @@ void main()
 
         if (strcmp("q\n", strings[0]) == 0 || strcmp("quit\n", strings[0]) == 0)
         {
-
             fprintf(stderr, "Quitting\n");
             quitting(children);
             break;
@@ -123,9 +122,14 @@ void main()
                 }
             }
         }
-        else if(strcmp("find", strings[0]) == 0)
+        else if (strcmp("find", strings[0]) == 0)
         {
-            
+            char text[100] = &strings[1];
+            //text = *strings[1];
+            if (strcmp(strings[1], "text\n") == 0)
+            {
+                printf("here");
+            }
         }
     }
 }
