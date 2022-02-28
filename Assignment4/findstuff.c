@@ -10,10 +10,15 @@
 #include <dirent.h>
 #include <string.h>
 
+#define START_DIR = "."
 
-void parentProcess()
+typedef struct Child
 {
-}
+    int pid;
+    int fd[2];
+    int status;
+} Child;
+
 void childProcess()
 {
 }
@@ -26,55 +31,101 @@ int findSubDir()
 {
 }
 
-void quit(int *children, int *parent)
+void quitting(Child *children)
 {
     for (int i = 0; i < 10; i++)
     {
-        if (children[i] != 0)
+        if (children[i].pid > 0)
         {
-            kill(children[i], SIGKILL);
-            children[i] = 0;
+            kill(children[i].pid, SIGKILL);
+            children[i].status = 0;
         }
-        
     }
-    kill(parent, SIGKILL);
     wait(0);
 }
 
-void killchild(int pid, int *childPid)
+void killChild(int child)
 {
-     for (int i = 0; i < 10; i++)
-    {
-        if (childPid[i] == pid)
-        {
-            kill(childPid[i], SIGKILL);
-            childPid[i] = 0;
-        }
-    }
+    printf("child killed\n");
+    // kill(child, SIGKILL);
 }
 
-void list(int *children)
+void list(Child *children)
 {
     char notRunning[] = "Not Running";
     char running[] = "Running";
 
     for (int i = 1; i <= 10; i++)
     {
-        if (children[i] == 0) //not running
+        if (children[i].status == 0) // not running
         {
-            printf("Child %d: PID: %d Status: %s\n", i, children[i], notRunning);
+            printf("Child %d: PID: %d Status: %s\n", i, children[i].pid, notRunning);
         }
-        else //running
+        else // running
         {
-            printf("Child %d: PID: %d Status: %s\n", i, children[i], running);
+            printf("Child %d: PID: %d Status: %s\n", i, children[i].pid, running);
         }
     }
 }
 
 void main()
 {
-    int *parentPid = (int *)mmap(NULL, sizeof(int), 0x1 | 0x2, 0x20 | 0x01, -1, 0);
-    int *childPids = (int *)mmap(NULL, 10 * sizeof(int), 0x1 | 0x2, 0x20 | 0x01, -1, 0);
+    Child *children = (Child *)mmap(0, sizeof(Child) * 10, 0x1 | 0x2, 0x20 | 0x01, -1, 0);
 
-    list(childPids);
+    for (int i = 1; i <= 10; i++)
+    {
+        children[i].pid = -1;
+        children[i].status = 0;
+    }
+
+    char userInput[1024];
+
+    while (1)
+    {
+        fprintf(stderr, "\033[1;34mfindstuff$\033[0m$ ");
+        fgets(userInput, sizeof(userInput), stdin);
+
+        // Gets all strings and store them
+        char *spaces = strtok(userInput, " ");
+        char *strings[4];
+
+        while (spaces != NULL)
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                strings[i] = spaces;
+                spaces = strtok(NULL, " ");
+            }
+        }
+
+        if (strcmp("q\n", strings[0]) == 0 || strcmp("quit\n", strings[0]) == 0)
+        {
+
+            fprintf(stderr, "Quitting\n");
+            quitting(children);
+            break;
+        }
+        else if (strcmp("list\n", strings[0]) == 0)
+        {
+            list(children);
+        }
+        else if (strcmp("kill", strings[0]) == 0)
+        {
+            for (int i = 1; i <= 10; i++)
+            {
+                char temp[2];
+                sprintf(temp, "%d", i); // int to string
+                strcat(temp, "\n");     // add ending
+
+                if (strcmp(strings[1], temp) == 0)
+                {
+                    killChild(children[i].pid);
+                }
+            }
+        }
+        else if(strcmp("find", strings[0]) == 0)
+        {
+            
+        }
+    }
 }
