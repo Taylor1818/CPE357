@@ -10,8 +10,6 @@
 #include <dirent.h>
 #include <string.h>
 
-#define START_DIR = "."
-
 typedef struct Child
 {
     int pid;
@@ -19,7 +17,9 @@ typedef struct Child
     int status;
 } Child;
 
-int childAvail(Child *children)
+Child *children;
+
+int childAvail()
 {
     for (int i = 1; i <= 10; i++)
     {
@@ -31,42 +31,134 @@ int childAvail(Child *children)
     return -1;
 }
 
-void findInner(Child *child, char *string)
+int searchRecursive(char *string, Child *child, int quotes, int recursive, char *fileType, char *path, int *find)
 {
-}
+    DIR *dir = opendir(path);
 
-
-
-void findFileName(Child *child, char *string)
-{
-    char result[1024];
-
-    DIR *d;
-    struct dirent *dir;
-    d = opendir(".");
-    if (d)
+    if (dir == NULL)
     {
-        while ((dir = readdir(d)) != NULL)
+        return -1;
+    }
+
+    struct dirent *d;
+
+    while ((d = readdir(dir)) != NULL)
+    {
+        if (d->d_name[0] == '.' && (d->d_name[1] == '\0' || d->d_name[1] == '.' && (d->d_name[2] == '\0')))
         {
-            if (dir->d_name[0] != '.')// check stat and if needing to be recursive
+            continue;
+        }
+        struct stat statBlock;
+        char filePath[1024];
+
+        strcpy(filePath, path);
+        strcat(filePath, "/");
+        strcat(filePath, d->d_name);
+        lstat(filePath, &statBlock);
+
+        if (d->d_type == 4) // is folder
+        {
+            searchRecursive(string, child, quotes, recursive, fileType, filePath, find);
+        }
+        else
+        {
+
+            if (quotes == 0)
             {
-                if(strcmp(dir->d_name, string) == 0)
+                if (strcmp(d->d_name, string) == 0)
                 {
-                    strcpy(result, dir-> d_name);
-                    fprintf(stderr, "%s", result);
-                    //strcat(result, '\0');
-                    //printf("%s%s\033[0m  ", dir->d_type != DT_DIR ? "\033[0m" : "\033[1;34m", dir->d_name);   
+                    *find = *find + 1;
+                    write(child->fd[1], filePath, strlen(filePath));
                 }
-                
+            }
+            else
+            {
             }
         }
-        closedir(d);
     }
-    //write(child->fd[1], result, 1024);
-    printf("\n");
 }
 
-void quitting(Child *children)
+int search(char *string, Child *child, char *strings[], int quotes)
+{
+
+    // find text -s
+    // find text -f:c
+    // find text -f:c -s
+
+    // find "text" -s
+    // find "text" -f:c
+    // find "text" -f:c -s || -s -f:c
+    time_t startTime = clock();
+    int recursive = 0;
+    char *fileType = NULL;
+    int found = 0;
+
+    if (strings[2] != NULL || strings[3] != NULL)
+    {
+        if (strcmp(strings[2], "-s") == 0 || strcmp(strings[3], "-s") == 0) // searchSub
+        {
+            recursive = 1;
+        }
+        if (strcmp(strings[2], "-f:") > 0)
+        {
+            fileType = strings[2] + 3;
+        }
+        if (strcmp(strings[3], "-f:") > 0)
+        {
+            fileType = strings[3] + 3;
+        }
+    }
+    else
+    {
+    }
+
+    
+    searchRecursive(string, child, quotes, recursive, fileType, ".", &found);
+    
+    char message[100];
+    int mils = (((double)(clock() - startTime)) / CLOCKS_PER_SEC * 1000);
+    int hh = mils / 3600000;
+    int mm = (mils % 3600000) / 60000;
+    int ss = (mils % 60000) / 1000;
+    int ms = (mils % 1000);
+
+    
+    snprintf(message, sizeof(message), "\nFound %d files in %02d:%02d:%02d:%02d\n", found, hh, mm, ss, ms);
+
+    write(child->fd[1], message, 100);
+
+    child->status = 1;
+    kill(getppid(), SIGUSR1);
+
+    close(child->fd[1]);
+    exit(0);
+}
+
+int findSetup(Child *child, char *string, char *strings[], int quotes)
+{
+    pipe(child->fd);
+    int pid = fork();
+
+    if (pid == 0)
+    {
+        close(child->fd[0]);
+        search(string, child, strings, quotes);
+    }
+    else if (pid > 0)
+    {
+        child->status = 1;
+        child->pid = pid;
+        close(child->fd[1]);
+        return 0;
+    }
+    else
+    {
+        fprintf(stderr, "failed to fork child");
+        return -1;
+    }
+}
+
+void quitting()
 {
     for (int i = 0; i < 10; i++)
     {
@@ -82,10 +174,11 @@ void quitting(Child *children)
 void killChild(int child)
 {
     printf("child killed\n");
-    // kill(child, SIGKILL);
+    kill(child, SIGKILL);
+    
 }
 
-void list(Child *children)
+void list()
 {
     char notRunning[] = "Not Running";
     char running[] = "Running";
@@ -103,9 +196,42 @@ void list(Child *children)
     }
 }
 
+void handler(int i)
+{
+    int saveIn = dup(STDIN_FILENO);
+    int c = -1;
+    for (int i = 0; i < 10; i++)
+    {
+        if (children[i].status == 1)
+        {
+            children[i].status = 0;
+            c = i;
+            dup2(children[i].fd[0], STDIN_FILENO);
+
+            char result;
+            fprintf(stderr, "\n");
+
+            while (read(STDIN_FILENO, &result, 1) && result != '\0')
+            {
+                write(STDERR_FILENO, &result, 1);
+            }
+        }
+    }
+
+    dup2(saveIn, STDIN_FILENO);
+    waitpid(children[c].pid, NULL, 0);
+
+    close(children[c].fd[0]);
+    children[c].pid = -1;
+    children[c].fd[1] = 0;
+    children[c].fd[0] = 0;
+
+    write(STDERR_FILENO, "Press ENTER to continue", 24);
+}
+
 void main()
 {
-    Child *children = (Child *)mmap(0, sizeof(Child) * 10, 0x1 | 0x2, 0x20 | 0x01, -1, 0);
+    children = (Child *)mmap(0, sizeof(Child) * 10, 0x1 | 0x2, 0x20 | 0x01, -1, 0);
 
     for (int i = 1; i <= 10; i++)
     {
@@ -113,12 +239,14 @@ void main()
         children[i].status = 0;
     }
 
+    signal(SIGUSR1, handler);
+
     char userInput[1024];
 
     while (1)
     {
-        fprintf(stderr, "\033[1;34mfindstuff$\033[0m$ ");
-        fgets(userInput, sizeof(userInput), stdin);
+        fprintf(stderr, "\033[1;34mfindstuff$\033[0m ");
+        fgets(userInput, 1024, stdin);
 
         // Gets all strings and store them
         char *spaces = strtok(userInput, " ");
@@ -132,17 +260,21 @@ void main()
                 spaces = strtok(NULL, " ");
                 strings[i][strcspn(strings[i], "\n")] = '\0';
             }
+            else
+            {
+                strings[i] = NULL;
+            }
         }
 
         if (strcmp("q", strings[0]) == 0 || strcmp("quit", strings[0]) == 0)
         {
             fprintf(stderr, "Quitting\n");
-            quitting(children);
+            quitting();
             break;
         }
         else if (strcmp("list", strings[0]) == 0)
         {
-            list(children);
+            list();
         }
         else if (strcmp("kill", strings[0]) == 0)
         {
@@ -153,51 +285,47 @@ void main()
 
                 if (strcmp(strings[1], temp) == 0)
                 {
-                    killChild(children[i].pid);
+                    killChild(children + i);
                 }
             }
         }
         else if (strcmp("find", strings[0]) == 0)
         {
 
-            int cA = childAvail(children);
+            int cA = childAvail();
 
             char text[1024];
-
-            strcpy(text, strings[1]);
-
-            if (text[0] == '"')
+            if (strings[1] != NULL)
             {
-                int stringLength;
-                for (int i = 1; text[i] != '\0'; i++)
-                {
-                    if (text[i] == '"')
-                    {
-                        stringLength = i - 1;
-                        break;
-                    }
-                }
-                char *toSearchFor = text + 1;
-                stringLength[toSearchFor] = '\0';
-
-                int pid = fork();
-                if (pid == 0)
-                {
-                    findInner(children + cA, toSearchFor);
-                }
+                strcpy(text, strings[1]);
             }
-            else //No quotations
+
+            if (cA == -1)
             {
-                int pid = fork();
-                if (pid == 0)
+                printf("all children busy.");
+            }
+            else
+            {
+                if (text[0] == '"')
                 {
-                    (children+cA)->pid = getpid();
-                    findFileName(children + cA, text);
+                    int stringLength;
+                    for (int i = 1; text[i] != '\0'; i++)
+                    {
+                        if (text[i] == '"')
+                        {
+                            stringLength = i - 1;
+                            break;
+                        }
+                    }
+                    char *toSearchFor = text + 1;
+                    stringLength[toSearchFor] = '\0';
 
-                    char pipeRead[1024];
-                    //read((children + cA)->fd[0], pipeRead, 1024 );
+                    findSetup(children + cA, text, strings, 1);
+                }
+                else // No quotations
+                {
 
-                    printf("%s", pipeRead);
+                    findSetup(children + cA, text, strings, 0);
                 }
             }
         }
