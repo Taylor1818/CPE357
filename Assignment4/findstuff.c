@@ -10,6 +10,8 @@
 #include <dirent.h>
 #include <string.h>
 
+//taylor
+
 typedef struct Child
 {
     int pid;
@@ -42,8 +44,10 @@ int searchRecursive(char *string, Child *child, int quotes, int recursive, char 
 
     struct dirent *d;
 
+
     while ((d = readdir(dir)) != NULL)
     {
+
         if (d->d_name[0] == '.' && (d->d_name[1] == '\0' || d->d_name[1] == '.' && (d->d_name[2] == '\0')))
         {
             continue;
@@ -58,12 +62,17 @@ int searchRecursive(char *string, Child *child, int quotes, int recursive, char 
 
         if (d->d_type == 4) // is folder
         {
-            searchRecursive(string, child, quotes, recursive, fileType, filePath, find);
+
+            if (recursive == 1)
+            {
+
+                searchRecursive(string, child, quotes, recursive, fileType, filePath, find);
+            }
         }
-        else
+        else // file
         {
 
-            if (quotes == 0)
+            if (quotes == 0) // search just name
             {
                 if (strcmp(d->d_name, string) == 0)
                 {
@@ -71,11 +80,48 @@ int searchRecursive(char *string, Child *child, int quotes, int recursive, char 
                     write(child->fd[1], filePath, strlen(filePath));
                 }
             }
-            else
+            else // quotes exist check file contents
             {
+
+                if (statBlock.st_blocks > 0)
+                {
+
+                    FILE *f = fopen(filePath, "r");
+
+                    if (f == NULL)
+                    {
+                        break;
+                    }
+
+                    char *line;
+                    size_t len = 0;
+                    ssize_t read;
+
+                    while ((read = getline(&line, &len, f)) != -1)
+                    {
+                        
+                        
+                        line[strcspn(line, "\n")] = '\0';
+                        
+                        if (strstr(line, string) != NULL )
+                        {
+                            
+                            fclose(f);
+                            free(line);
+                            *find = *find + 1;
+                            write(child->fd[1], filePath, strlen(filePath));
+                            continue;
+                        }
+                    }
+
+                    fclose(f);
+                    free(line);
+                }
             }
         }
     }
+    closedir(dir);
+    return 0;
 }
 
 int search(char *string, Child *child, char *strings[], int quotes)
@@ -93,9 +139,9 @@ int search(char *string, Child *child, char *strings[], int quotes)
     char *fileType = NULL;
     int found = 0;
 
-    if (strings[2] != NULL || strings[3] != NULL)
+    if (strings[2] != NULL)
     {
-        if (strcmp(strings[2], "-s") == 0 || strcmp(strings[3], "-s") == 0) // searchSub
+        if (strcmp(strings[2], "-s") == 0) // searchSub
         {
             recursive = 1;
         }
@@ -103,18 +149,23 @@ int search(char *string, Child *child, char *strings[], int quotes)
         {
             fileType = strings[2] + 3;
         }
+       
+    }
+    if (strings[3] != NULL)
+    {
+        if (strcmp(strings[3], "-s") == 0)
+        {
+            recursive = 1;
+        }
+
         if (strcmp(strings[3], "-f:") > 0)
         {
             fileType = strings[3] + 3;
         }
     }
-    else
-    {
-    }
 
-    
     searchRecursive(string, child, quotes, recursive, fileType, ".", &found);
-    
+
     char message[100];
     int mils = (((double)(clock() - startTime)) / CLOCKS_PER_SEC * 1000);
     int hh = mils / 3600000;
@@ -122,7 +173,6 @@ int search(char *string, Child *child, char *strings[], int quotes)
     int ss = (mils % 60000) / 1000;
     int ms = (mils % 1000);
 
-    
     snprintf(message, sizeof(message), "\nFound %d files in %02d:%02d:%02d:%02d\n", found, hh, mm, ss, ms);
 
     write(child->fd[1], message, 100);
@@ -141,6 +191,7 @@ int findSetup(Child *child, char *string, char *strings[], int quotes)
 
     if (pid == 0)
     {
+
         close(child->fd[0]);
         search(string, child, strings, quotes);
     }
@@ -157,6 +208,15 @@ int findSetup(Child *child, char *string, char *strings[], int quotes)
         return -1;
     }
 }
+void killChild(int child, int index)
+{
+    printf("child killed\n");
+    kill(child, SIGKILL);
+    children[index].pid = -1;
+    children[index].fd[1] = 0;
+    children[index].fd[0] = 0;
+    children[index].status = 0;
+}
 
 void quitting()
 {
@@ -164,19 +224,14 @@ void quitting()
     {
         if (children[i].pid > 0)
         {
-            kill(children[i].pid, SIGKILL);
+            killChild(children[i].pid, i);
             children[i].status = 0;
         }
     }
     wait(0);
 }
 
-void killChild(int child)
-{
-    printf("child killed\n");
-    kill(child, SIGKILL);
-    
-}
+
 
 void list()
 {
@@ -285,7 +340,7 @@ void main()
 
                 if (strcmp(strings[1], temp) == 0)
                 {
-                    killChild(children + i);
+                    killChild(children[i].pid, i);
                 }
             }
         }
@@ -324,7 +379,6 @@ void main()
                 }
                 else // No quotations
                 {
-
                     findSetup(children + cA, text, strings, 0);
                 }
             }
