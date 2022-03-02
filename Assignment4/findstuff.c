@@ -10,8 +10,6 @@
 #include <dirent.h>
 #include <string.h>
 
-//taylor
-
 typedef struct Child
 {
     int pid;
@@ -44,10 +42,8 @@ int searchRecursive(char *string, Child *child, int quotes, int recursive, char 
 
     struct dirent *d;
 
-
     while ((d = readdir(dir)) != NULL)
     {
-
         if (d->d_name[0] == '.' && (d->d_name[1] == '\0' || d->d_name[1] == '.' && (d->d_name[2] == '\0')))
         {
             continue;
@@ -62,7 +58,6 @@ int searchRecursive(char *string, Child *child, int quotes, int recursive, char 
 
         if (d->d_type == 4) // is folder
         {
-
             if (recursive == 1)
             {
 
@@ -71,51 +66,49 @@ int searchRecursive(char *string, Child *child, int quotes, int recursive, char 
         }
         else // file
         {
-
-            if (quotes == 0) // search just name
+            if (fileType == NULL || strstr(d->d_name, fileType) != NULL)
             {
-                if (strcmp(d->d_name, string) == 0)
+
+                if (quotes == 0) // search just name
                 {
-                    *find = *find + 1;
-                    write(child->fd[1], filePath, strlen(filePath));
+                    if (strstr(d->d_name, string) != NULL)
+                    {
+                        *find = *find + 1;
+                        strcat(filePath, "\n");
+                        write(child->fd[1], filePath, strlen(filePath));
+                    }
                 }
-            }
-            else // quotes exist check file contents
-            {
-
-                if (statBlock.st_blocks > 0)
+                else // quotes exist check file contents
                 {
-
-                    FILE *f = fopen(filePath, "r");
-
-                    if (f == NULL)
+                    if (statBlock.st_blocks > 0)
                     {
-                        break;
-                    }
+                        FILE *f = fopen(filePath, "r");
 
-                    char *line;
-                    size_t len = 0;
-                    ssize_t read;
-
-                    while ((read = getline(&line, &len, f)) != -1)
-                    {
-                        
-                        
-                        line[strcspn(line, "\n")] = '\0';
-                        
-                        if (strstr(line, string) != NULL )
+                        if (f == NULL)
                         {
-                            
-                            fclose(f);
-                            free(line);
-                            *find = *find + 1;
-                            write(child->fd[1], filePath, strlen(filePath));
-                            continue;
+                            break;
                         }
-                    }
 
-                    fclose(f);
-                    free(line);
+                        char *line;
+                        size_t len = 0;
+                        ssize_t read;
+
+                        while ((read = getline(&line, &len, f)) != -1)
+                        {
+                            line[strcspn(line, "\n")] = '\0';
+                            
+                            if (strstr(line, string) != NULL)
+                            {
+                                *find = *find + 1;
+                                strcat(filePath, "\n");
+                                write(child->fd[1], filePath, strlen(filePath));
+                                break;
+                            }
+                        }
+
+                        fclose(f);
+                        free(line);
+                    }
                 }
             }
         }
@@ -126,14 +119,6 @@ int searchRecursive(char *string, Child *child, int quotes, int recursive, char 
 
 int search(char *string, Child *child, char *strings[], int quotes)
 {
-
-    // find text -s
-    // find text -f:c
-    // find text -f:c -s
-
-    // find "text" -s
-    // find "text" -f:c
-    // find "text" -f:c -s || -s -f:c
     time_t startTime = clock();
     int recursive = 0;
     char *fileType = NULL;
@@ -145,11 +130,11 @@ int search(char *string, Child *child, char *strings[], int quotes)
         {
             recursive = 1;
         }
-        if (strcmp(strings[2], "-f:") > 0)
+        else if (strcmp(strings[2], "-f:") > 0)
         {
-            fileType = strings[2] + 3;
+            fileType = strings[2] + 2;
+            fileType[0] = '.';
         }
-       
     }
     if (strings[3] != NULL)
     {
@@ -158,9 +143,10 @@ int search(char *string, Child *child, char *strings[], int quotes)
             recursive = 1;
         }
 
-        if (strcmp(strings[3], "-f:") > 0)
+        else if (strcmp(strings[3], "-f:") > 0)
         {
-            fileType = strings[3] + 3;
+            fileType = strings[3] + 2;
+            fileType[0] = '.';
         }
     }
 
@@ -229,9 +215,8 @@ void quitting()
         }
     }
     wait(0);
+    munmap( children, sizeof(Child)*10 );
 }
-
-
 
 void list()
 {
@@ -281,7 +266,7 @@ void handler(int i)
     children[c].fd[1] = 0;
     children[c].fd[0] = 0;
 
-    write(STDERR_FILENO, "Press ENTER to continue", 24);
+    write(STDERR_FILENO, "\033[1;34mfindstuff$\033[0m ", 23);
 }
 
 void main()
@@ -361,8 +346,10 @@ void main()
             }
             else
             {
+
                 if (text[0] == '"')
                 {
+
                     int stringLength;
                     for (int i = 1; text[i] != '\0'; i++)
                     {
@@ -373,9 +360,9 @@ void main()
                         }
                     }
                     char *toSearchFor = text + 1;
-                    stringLength[toSearchFor] = '\0';
+                    toSearchFor[stringLength] = '\0';
 
-                    findSetup(children + cA, text, strings, 1);
+                    findSetup(children + cA, toSearchFor, strings, 1);
                 }
                 else // No quotations
                 {
@@ -384,4 +371,5 @@ void main()
             }
         }
     }
+    
 }
