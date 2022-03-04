@@ -27,7 +27,6 @@ int main(int argc, char* argv[])
 
     // number of processes as an int
     int N = atoi(argv[2]);
-
     for (int i = 0; i < N; i++)
     {
         if (fork() == 0)
