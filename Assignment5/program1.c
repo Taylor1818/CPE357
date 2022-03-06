@@ -61,8 +61,9 @@ void quadratic_matrix_multiplication(float *A, float *B, float *C)
 void quadratic_matrix_multiplication_parallel(int par_id, int par_count, float *A, float *B, float *C)
 {
 
-    int cells = floor((MATRIX_DIMENSION_XY * MATRIX_DIMENSION_XY) / par_count);
+    int cells = (MATRIX_DIMENSION_XY * MATRIX_DIMENSION_XY) / par_count;
     int remainder = (MATRIX_DIMENSION_XY * MATRIX_DIMENSION_XY) % par_count;
+    int some = 0;
 
     if (par_id < remainder)
     {
@@ -73,7 +74,7 @@ void quadratic_matrix_multiplication_parallel(int par_id, int par_count, float *
 
     if (par_id >= remainder)
     {
-        start = par_id + remainder;
+        start += remainder ;
     }
 
     for (int i = start; i < (start + cells); i++)
@@ -91,16 +92,25 @@ void quadratic_matrix_multiplication_parallel(int par_id, int par_count, float *
 
 void synch(int par_id, int par_count, int *ready)
 {
+    int flag = ready[2];
+    ready[flag]++;
+    while (ready[flag] != par_count);
+    if (ready[2] == flag)
+    {
+        ready[2] = 1 - flag;
+        ready[1 - flag] = 0;
+    } 
+
     return;
 }
 
-int main(int argc, char *argv[])
+void main(int argc, char *argv[])
 {
     int par_id = 0;    // the parallel ID of this process
     int par_count = 1; // the amount of processes
     float *A, *B, *C;  // matrices A,B and C
     int *ready;        // needed for synch
-    //clock_t start, stop;
+    // clock_t start, stop;
 
     if (argc != 3)
     {
@@ -130,16 +140,18 @@ int main(int argc, char *argv[])
         fd[2] = shm_open("matrixC", O_RDWR | O_CREAT, 0777);
         fd[3] = shm_open("synchobject", O_RDWR | O_CREAT, 0777);
 
-        ftruncate(fd[0], sizeof(float) * 100);
-        ftruncate(fd[1], sizeof(float) * 100);
-        ftruncate(fd[2], sizeof(float) * 100);
-        ftruncate(fd[3], sizeof(float) * 100);
+        ftruncate(fd[0], sizeof(float) * 10);
+        ftruncate(fd[1], sizeof(float) * 10);
+        ftruncate(fd[2], sizeof(float) * 10);
+        ftruncate(fd[3], sizeof(int) * 11);
 
         A = (float *)mmap(0, sizeof(float) * 100, PROT_READ | PROT_WRITE, MAP_SHARED, fd[0], 0);
         B = (float *)mmap(0, sizeof(float) * 100, PROT_READ | PROT_WRITE, MAP_SHARED, fd[1], 0);
         C = (float *)mmap(0, sizeof(float) * 100, PROT_READ | PROT_WRITE, MAP_SHARED, fd[2], 0);
-        ready = (int *)mmap(0, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED, fd[3], 0);
-        *ready = 1;
+        ready = (int *)mmap(0, sizeof(int) * 3, PROT_READ | PROT_WRITE, MAP_SHARED, fd[3], 0);
+        ready[0] = 0; // counter
+        ready[1] = 0; // counter
+        ready[2] = 0; // flag
     }
     else
     {
@@ -155,28 +167,22 @@ int main(int argc, char *argv[])
         A = (float *)mmap(0, sizeof(float) * 100, PROT_READ | PROT_WRITE, MAP_SHARED, fd[0], 0);
         B = (float *)mmap(0, sizeof(float) * 100, PROT_READ | PROT_WRITE, MAP_SHARED, fd[1], 0);
         C = (float *)mmap(0, sizeof(float) * 100, PROT_READ | PROT_WRITE, MAP_SHARED, fd[2], 0);
-        ready = (int *)mmap(0, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED, fd[3], 0);
+        ready = (int *)mmap(0, sizeof(int) * 3, PROT_READ | PROT_WRITE, MAP_SHARED, fd[3], 0);
     }
 
     synch(par_id, par_count, ready);
 
     if (par_id == 0)
     {
-        fprintf(stderr, "Here");
-
-        // time the multiplication
-        //start = clock();
-        // TODO: initialize the matrices A and B
-        for (int x = 0; x < 100; x++)
-        {
-            for (int y = 0; y < 100; y++)
-            {
-
-                // for simplicity sake, initializing to numbers 1- 10
-                set_matrix_elem(A, x, y, (rand() % 10) + 1);
-                set_matrix_elem(B, x, y, (rand() % 10) + 1);
-            }
-        }
+        for (int a = 0; a < 100; a++)
+            A[a] = (rand() % 10) + 1;
+        for (int b = 0; b < 100; b++)
+            B[b] = (rand() % 10) + 1;
+        
+        printf("\nMatrix A:");
+        quadratic_matrix_print(A);
+        printf("\nMatrix B:");
+        quadratic_matrix_print(B);
     }
 
     synch(par_id, par_count, ready);
@@ -187,13 +193,10 @@ int main(int argc, char *argv[])
 
     if (par_id == 0)
     {
-
         quadratic_matrix_print(C);
-
     }
 
     synch(par_id, par_count, ready);
-                fprintf(stderr, "Here");
 
     // lets test the result:
     float M[MATRIX_DIMENSION_XY * MATRIX_DIMENSION_XY];
@@ -214,6 +217,4 @@ int main(int argc, char *argv[])
     shm_unlink("matrixB");
     shm_unlink("matrixC");
     shm_unlink("synchobject");
-
-    return 0;
 }
