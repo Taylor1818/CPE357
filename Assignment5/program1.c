@@ -110,7 +110,6 @@ void main(int argc, char *argv[])
     int par_count = 1; // the amount of processes
     float *A, *B, *C;  // matrices A,B and C
     int *ready;        // needed for synch
-    // clock_t start, stop;
 
     if (argc != 3)
     {
@@ -120,7 +119,6 @@ void main(int argc, char *argv[])
     {
         par_id = atoi(argv[1]);
         par_count = atoi(argv[2]);
-        // strcpy(shared_mem_matrix,argv[3]);
     }
 
     if (par_count == 1)
@@ -132,9 +130,7 @@ void main(int argc, char *argv[])
 
     if (par_id == 0)
     {
-
         // TODO: init the shared memory for A,B,C, ready. shm_open with C_CREAT here!
-        // then ftruncate !then mmap
         fd[0] = shm_open("matrixA", O_RDWR | O_CREAT, 0777);
         fd[1] = shm_open("matrixB", O_RDWR | O_CREAT, 0777);
         fd[2] = shm_open("matrixC", O_RDWR | O_CREAT, 0777);
