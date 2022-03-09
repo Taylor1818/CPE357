@@ -32,9 +32,6 @@ end ODD-EVEN_PAR
 IF ARRAY LENGTH EVEN START WITH ODD PHASE
 ELSE IF ARRAY LENGTH IS ODD START WITH EVEN PHASE
 
-
-
-
 8 9_2 4_7 EVEN
 |
 8_2 9_7 4 ODD
@@ -49,3 +46,35 @@ ELSE IF ARRAY LENGTH IS ODD START WITH EVEN PHASE
 
 https://formal.kastel.kit.edu/ulbrich/verifythis2017/challenge3.pdf
 */
+
+
+#include <unistd.h>
+#include <signal.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <math.h>
+
+
+void synch(int arrayLength, int *ready)
+{
+    int flag = ready[2];
+    ready[flag]++;
+    while (ready[flag] != arrayLength);
+    if (ready[2] == flag)
+    {
+        ready[2] = 1 - flag;
+        ready[1 - flag] = 0;
+    } 
+
+    return;
+}
+
+void main(){
+   
+}

@@ -32,7 +32,16 @@ I will not test unexpected input; hence you may assume the command-line is well 
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <sys/time.h>
 #include <sys/wait.h>
+
+char *dots;
+
+void handler(int i)
+{
+    fprintf(stderr, "%s", dots);
+    dots++;
+}
 
 int main(int argc, char *argv[])
 {
@@ -40,18 +49,6 @@ int main(int argc, char *argv[])
     //          argv[0] argv[1]
     // ./countdown 4.5 ./programwithcommandlineargs hi 34
 
-    char *args = malloc(sizeof(argv)); // space for all of the arguments
-
-    // loops through all if the arguments and sets them into args
-    for (int i = 0; i < sizeof(argv); i++)
-    {
-        strcpy(args[i], argv[i]);
-    }
-
-    int timer = atoi(args[0]);  // gets the wait timer length before exec program
-    char *executable = args[1]; // file to execute
-
-    // int getitimer(ITIMER_REAL, itimerval);
     // ...... //3 seconds until START
     // ..... //2.5 seconds until START
     // .... //2 seconds until START
@@ -60,21 +57,38 @@ int main(int argc, char *argv[])
     // . //0.5 seconds until START
     //  // START of other program
 
-    while( timer > 0 )
+    int timer = atoi(argv[1]);  // gets the wait timer length before exec program
+    char *executable = argv[2]; // file to execute
+
+    dots = malloc(timer * 2 + 2);
+    for (int i = 0; i < (timer * 2); i++)
     {
-        if( timer == .5 )
-        {
-            //print timer*2 dots + space + timer plus seconds until START
-            fprintf(stdout, "toBePrint");
-        }
-        timer -= .5;
+        dots[i] = '.';
     }
 
-    if (fork == 0)
+    dots[timer * 2] = '\n';
+    dots[timer * 2 + 1] = '\0';
+
+    char *newDots = dots;
+
+    struct itimerval time;
+
+    time.it_interval.tv_sec = 0;
+    time.it_interval.tv_usec = 500000;
+    time.it_value.tv_sec = 0;
+    time.it_value.tv_usec = 500000;
+
+    signal(SIGALRM, handler);
+
+    setitimer(ITIMER_REAL, &time, NULL);
+
+    while (newDots + timer *2 +1> dots);
+
+    if (fork() == 0)
     {
-        execv(executable, args);
+        execv(executable, argv + 2);
     }
-    waitpid(getppid(), NULL, 0);
+    wait(0);
 
     return 0;
 }
